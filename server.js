@@ -219,7 +219,7 @@ function UpdateEmployeeRole() {
     })
 }
 
-// works part of update role
+// works -> part of update role
 function roleArray(employeeChoices) {
     console.log("Updating an role");
   
@@ -243,7 +243,7 @@ function roleArray(employeeChoices) {
     });
 }
 
-// works part of update role
+// works -> part of update role
 function promptEmployeeRole(employeeChoices, roleChoices) {
 
     inquirer
@@ -299,69 +299,51 @@ function ViewAllRoles() {
     })
 }
 
-// broken
+// works
 function AddRole() {
-    let query =`
-    SELECT d.id, d.name, r.salary AS budget
-    FROM employee e
-    JOIN role r
-    ON e.role_id = r.id
-    JOIN department d
-    ON d.id = r.department_id
-    GROUP BY d.id, d.name`
-      
-    connection.query(query, function (err, res) {
-        if (err) throw err;
-      
-        const departmentChoices = res.map(({ id, name }) => ({
-        value: id, name: `${id} ${name}`
-        }));
-      
-        console.table(res);
-        console.log("Department array!");
-      
-        promptAddRole(departmentChoices);
-    });
-}
-
-// broken -> add role
-function promptAddRole(departmentChoices) {
-    inquirer.prompt([
+  const query = `SELECT department.name FROM department`;
+  connection.query(query, (err, data) => {
+    if (err) throw err;
+    const departments = data.map((item) => `${item.name}`);
+    // --- new prompt to give hint for user's input needed
+    inquirer
+      .prompt([
         {
           type: "input",
-          name: "roleTitle",
-          message: "What is the role title?"
+          name: "title",
+          message: "What is the title of the role?",
         },
         {
           type: "input",
-          name: "roleSalary",
-          message: "What is the role salary?"
+          name: "salary",
+          message: "What is the salary of the role?",
         },
         {
+          // display all department name as choices
           type: "list",
-          name: "departmentId",
-          message: "What department is it in?",
-          choices: departmentChoices
+          name: "department_name",
+          message: "What is the department of the role?",
+          choices: [...departments],
         },
       ])
-      .then(function (answer) {
-        var query = `INSERT INTO role SET ?`
-  
-        connection.query(query, {
-          title: answer.title,
-          salary: answer.salary,
-          department_id: answer.departmentId
-        },
-          function (err, res) {
+      .then((data) => {
+        const { title, salary, department_name } = data;
+        connection.query(
+          `INSERT INTO role (title, salary, department_id)
+             SELECT ?, ?, department.id
+             FROM department
+             WHERE department.name = ?`,
+          [title, salary, department_name],
+          (err, res) => {
             if (err) throw err;
-  
-            console.table(res);
-            console.log("Role Inserted!");
-  
-            menuQuestions();
-        });
-  
-    });
+            console.log(
+              `\n-------------------\n Role ${title} has been added!\n`
+            );
+            ViewAllRoles();
+          }
+        );
+      });
+  });
 }
 
 // works
