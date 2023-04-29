@@ -42,6 +42,7 @@ connection.connect(function (err) {
     menuQuestions();
 })
 
+// works
 function menuQuestions() {
     inquirer.prompt({
         type:"list",
@@ -97,6 +98,7 @@ function menuQuestions() {
     })
 }
 
+// works
 function viewAllEmployees() {
     console.log("Viewing all employees: \n")
 
@@ -121,10 +123,27 @@ function viewAllEmployees() {
     })
 }
 
+// 'pipe' broken?
 function AddEmployee() {
     console.log("Please enter employee information: \n")
 
-    inquirer.prompt([
+    let query = `SELECT r.id, r.title, r.salary FROM role r`;
+
+    connection.query(query, function (err, res) {
+        if(err) throw err
+
+        const roleChoices = res.map(({ id, title, salary }) => ({
+            value: id, title: `${title}`, salary: `${salary}`
+        }))
+
+        console.table(res);
+
+        promptInsert(roleChoices);
+    })
+}
+
+function promptInsert(roleChoices) {
+    inquirer.prompt()[
         {
             type: "input",
             message: "What is the employees first name?",
@@ -137,91 +156,157 @@ function AddEmployee() {
         },
         {
             type: "list",
-            message: "What is the employees role ID number??",
-            name: "roleId"
+            message: "What is the employees role ID number?",
+            name: "roleId",
+            choices: roleChoices
         },
         {
             type: "input",
             message: "What is the manager ID number?",
             name: "managerId"
         }
-    ])
-    .then(function(answer) {
-      connection.query("INSERT INTO employee (first_name, last_name, role_id, manager_id) VALUES (?, ?, ?, ?)", [answer.first_name, answer.last_name, answer.roleId, answer.managerId], function(err, res) {
-        if (err) throw err;
+    ]
+    .then(function (answer) {
+        console.log(answer)
 
-        console.table(res);
-
-        menuQuestions();
-      });
-    });
-}
-
-function UpdateEmployeeRole() {
-    const employeeChoices = res.map(({ id, first_name, last_name }) => ({
-        value: id, name: `${first_name} ${last_name}`
-    }));
-    
-    let roleChoices
-
-    roleChoices = res.map(({ id, title, salary }) => ({
-        value: id, title: `${title}`, salary: `${salary}`      
-    }));
-    
-    inquirer.prompt([
-        {
-            type: "list",
-            message: "Which employee would you like to update?",
-            name: "employeeId",
-            choices: employeeChoices
-        },
-        {
-            type: "list",
-            message: "Which role do you want to update?",
-            name: "roleId",
-            choices: roleChoices
-        }
-    ])
-    .then (function(answer) {
-        let query = `UPDATE employee SET role_id = ? WHERE id = ?`
+        var query = `INSERT INTO employee SET ?`
         
-        connection.query(query, [answer.roleId, answer.employeeId],function(err, res) {
-            if (err) throw err;
-            console.table(res);
+        connection.query(query,
+        {
+          first_name: answer.first_name,
+          last_name: answer.last_name,
+          role_id: answer.roleId,
+          manager_id: answer.managerId,
+        },
+        function (err, res) {
+          if (err) throw err;
 
-            console.log(res.affectedRows + "Updated successfully!");
+          console.table(res);
+          console.log(res.insertedRows + "Inserted successfully!\n");
 
-            menuQuestions();
+          menuQuestions();
         })
     })
 }
 
-function ViewAllRoles() {
-    let query = "SELECT * FROM role";
-    
-    connection.query(query, function(err, res) {
-    if (err) throw err;
-    console.table(res);
-    })
+// works
+function UpdateEmployeeRole() {
+    console.log("Updating an employee");
 
-    menuQuestions()
+    var query =
+    `SELECT e.id, e.first_name, e.last_name, r.title, d.name AS department, r.salary, CONCAT(m.first_name, ' ', m.last_name) AS manager
+    FROM employee e
+    JOIN role r
+      ON e.role_id = r.id
+    JOIN department d
+        ON d.id = r.department_id
+    JOIN employee m
+      ON m.id = e.manager_id`
+  
+    connection.query(query, function (err, res) {
+      if (err) throw err;
+  
+      const employeeChoices = res.map(({ id, first_name, last_name }) => ({
+        value: id, name: `${first_name} ${last_name}`      
+      }));
+  
+      console.table(res);
+
+      console.log("Employees To Update:\n")
+  
+      roleArray(employeeChoices);
+    })
 }
 
+// works
+function roleArray(employeeChoices) {
+    console.log("Updating an role");
+  
+    var query =
+    `
+    SELECT r.id, r.title, r.salary 
+    FROM role r
+    `
+    let roleChoices;
+  
+    connection.query(query, function (err, res) {
+      if (err) throw err;
+  
+      roleChoices = res.map(({ id, title, salary }) => ({
+        value: id, title: `${title}`, salary: `${salary}`      
+      }));
+  
+      console.table(res);
+
+      promptEmployeeRole(employeeChoices, roleChoices);
+    });
+}
+
+// works
+function promptEmployeeRole(employeeChoices, roleChoices) {
+
+    inquirer
+      .prompt([
+        {
+          type: "list",
+          name: "employeeId",
+          message: "Which employee do you want to set with the role?",
+          choices: employeeChoices
+        },
+        {
+          type: "list",
+          name: "roleId",
+          message: "Which role do you want to update?",
+          choices: roleChoices
+        },
+      ])
+      .then(function (answer) {
+  
+        var query = `UPDATE employee SET role_id = ? WHERE id = ?`
+        // when finished prompting, insert a new item into the db with that info
+        connection.query(query,
+          [ answer.roleId,  
+            answer.employeeId
+          ],
+          function (err, res) {
+            if (err) throw err;
+  
+            console.table(res);
+            console.log(res.affectedRows + "Updated successfully!");
+  
+            menuQuestions();
+          });
+      });
+  }
+
+// works
+function ViewAllRoles() {
+    console.log("Viewing all roles: \n")
+
+    let query = `
+    SELECT role.id, role.title, role.salary, department.name AS department 
+    FROM role 
+    LEFT JOIN department 
+    ON role.department_id = department.id;`;
+    
+    connection.query(query, function(err, res) {
+        if (err) throw err;
+        
+        console.table(res);
+
+        menuQuestions()
+    })
+}
+
+// broken
 function AddRole() {
-    let query = `SELECT d.id, d.name, r.salary AS budget FROM employee e JOIN role r ON e.role_id = r.id JOIN department d ON d.id = r.department_id GROUP BY d.id, d.name`
+    let query = `SELECT department.name FROM department`
 
     connection.query(query, function (err, res) {
         if (err) throw err;
-    })
+        const departments = data.map((item) => `${item.name}`)
 
-    const departmentChoices = res.map(({ id, name }) => ({
-        value: id, name: `${id} ${name}`
-    }));
-
-    console.table(res)
-    console.log("Departments:")
-
-    inquirer.prompt ([
+        inquirer.prompt ([
         {
             type: "input",
             message: "What is the role title?",
@@ -236,10 +321,10 @@ function AddRole() {
             type: "list",
             message: "What department is the role in?",
             name: "departmentId",
-            choices: departmentChoices
+            choices: departments
         }
-    ])
-    .then(function(answer) {
+        ])
+        .then(function(answer) {
         connection.query(`INSERT INTO role SET ?`, [answer.title, answer.salary, answer.departmentId], 
         function(err, res) {
             if (err) throw err;
@@ -247,11 +332,22 @@ function AddRole() {
             console.table(res);
             console.log("Role Added")
 
-            menuQuestions()
+                    menuQuestions()
+                }
+            )
         })
+
     })
+
+    // const departmentChoices = res.map(({ id, name }) => ({
+    //     value: id, name: `${id} ${name}`
+    // }));
+
+    console.table(res)
+    console.log("Departments:")
 }
 
+// works
 function ViewAllDepartments() {
     let query = "SELECT * FROM department";
     
@@ -264,6 +360,7 @@ function ViewAllDepartments() {
     })
 }
 
+// broken
 function AddDepartment() {
     inquirer.prompt([
         {
