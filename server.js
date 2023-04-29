@@ -78,7 +78,7 @@ function menuQuestions() {
                 break;
 
             case "Add Role":
-                AddRole;
+                AddRole();
                 break;
 
             case "View All Departments":
@@ -142,6 +142,7 @@ function AddEmployee() {
     })
 }
 
+// part of add employee
 function promptInsert(roleChoices) {
     inquirer.prompt()[
         {
@@ -218,7 +219,7 @@ function UpdateEmployeeRole() {
     })
 }
 
-// works
+// works part of update role
 function roleArray(employeeChoices) {
     console.log("Updating an role");
   
@@ -242,7 +243,7 @@ function roleArray(employeeChoices) {
     });
 }
 
-// works
+// works part of update role
 function promptEmployeeRole(employeeChoices, roleChoices) {
 
     inquirer
@@ -277,7 +278,7 @@ function promptEmployeeRole(employeeChoices, roleChoices) {
             menuQuestions();
           });
       });
-  }
+}
 
 // works
 function ViewAllRoles() {
@@ -300,51 +301,67 @@ function ViewAllRoles() {
 
 // broken
 function AddRole() {
-    let query = `SELECT department.name FROM department`
-
+    let query =`
+    SELECT d.id, d.name, r.salary AS budget
+    FROM employee e
+    JOIN role r
+    ON e.role_id = r.id
+    JOIN department d
+    ON d.id = r.department_id
+    GROUP BY d.id, d.name`
+      
     connection.query(query, function (err, res) {
         if (err) throw err;
-        const departments = data.map((item) => `${item.name}`)
+      
+        const departmentChoices = res.map(({ id, name }) => ({
+        value: id, name: `${id} ${name}`
+        }));
+      
+        console.table(res);
+        console.log("Department array!");
+      
+        promptAddRole(departmentChoices);
+    });
+}
 
-        inquirer.prompt ([
+// broken -> add role
+function promptAddRole(departmentChoices) {
+    inquirer.prompt([
         {
-            type: "input",
-            message: "What is the role title?",
-            name: "roleTitle"
+          type: "input",
+          name: "roleTitle",
+          message: "What is the role title?"
         },
         {
-            type: "input",
-            message: "What is the role salary?",
-            name: "roleSalary"
+          type: "input",
+          name: "roleSalary",
+          message: "What is the role salary?"
         },
         {
-            type: "list",
-            message: "What department is the role in?",
-            name: "departmentId",
-            choices: departments
-        }
-        ])
-        .then(function(answer) {
-        connection.query(`INSERT INTO role SET ?`, [answer.title, answer.salary, answer.departmentId], 
-        function(err, res) {
+          type: "list",
+          name: "departmentId",
+          message: "What department is it in?",
+          choices: departmentChoices
+        },
+      ])
+      .then(function (answer) {
+        var query = `INSERT INTO role SET ?`
+  
+        connection.query(query, {
+          title: answer.title,
+          salary: answer.salary,
+          department_id: answer.departmentId
+        },
+          function (err, res) {
             if (err) throw err;
-            
+  
             console.table(res);
-            console.log("Role Added")
-
-                    menuQuestions()
-                }
-            )
-        })
-
-    })
-
-    // const departmentChoices = res.map(({ id, name }) => ({
-    //     value: id, name: `${id} ${name}`
-    // }));
-
-    console.table(res)
-    console.log("Departments:")
+            console.log("Role Inserted!");
+  
+            menuQuestions();
+        });
+  
+    });
 }
 
 // works
@@ -360,22 +377,29 @@ function ViewAllDepartments() {
     })
 }
 
-// broken
+// works
 function AddDepartment() {
     inquirer.prompt([
-        {
-            type: "input",
-            name: "departmentId",
-            message: "What is the name of the new department?"
-        }
+      {
+        type: "input",
+        name: "name",
+        message: "What is the name of the department?",
+      },
     ])
-    .then(function(answer){
-        connection.query("INSERT INTO department_id (name) VALUES (?)", [answer.departmentId] , function(err, res) {
-            if (err) throw err;
-            
-            console.table(res)
-           
-            menuQuestions()
-        })
+    .then((data) => {
+      const { name } = data
+      
+      connection.query(
+        `INSERT INTO department (name) VALUES (?)`,
+        [name],
+        (err, res) => {
+          if (err) throw err
+          console.log(
+            `Department ${name} has been added!`
+          )
+
+          ViewAllDepartments();
+        }
+      )
     })
 }
