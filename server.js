@@ -302,12 +302,12 @@ function ViewAllRoles() {
 // works
 function AddRole() {
   const query = `SELECT department.name FROM department`;
+  
   connection.query(query, (err, data) => {
     if (err) throw err;
     const departments = data.map((item) => `${item.name}`);
-    // --- new prompt to give hint for user's input needed
-    inquirer
-      .prompt([
+    
+    inquirer.prompt([
         {
           type: "input",
           name: "title",
@@ -319,31 +319,34 @@ function AddRole() {
           message: "What is the salary of the role?",
         },
         {
-          // display all department name as choices
           type: "list",
           name: "department_name",
           message: "What is the department of the role?",
           choices: [...departments],
         },
       ])
-      .then((data) => {
-        const { title, salary, department_name } = data;
-        connection.query(
-          `INSERT INTO role (title, salary, department_id)
-             SELECT ?, ?, department.id
-             FROM department
-             WHERE department.name = ?`,
-          [title, salary, department_name],
-          (err, res) => {
-            if (err) throw err;
-            console.log(
-              `\n-------------------\n Role ${title} has been added!\n`
+        .then((data) => {
+            const { title, salary, department_name } = data;
+        
+            connection.query(
+                `
+                INSERT INTO role (title, salary, department_id)
+                SELECT ?, ?, department.id
+                FROM department
+                WHERE department.name = ?
+                `,
+                [title, salary, department_name],
+                
+                (err, res) => {
+                    if (err) throw err;
+                
+                    console.log(`Role ${title} has been added!`);
+
+                    ViewAllRoles();
+                }
             );
-            ViewAllRoles();
-          }
-        );
-      });
-  });
+        });
+    });
 }
 
 // works
