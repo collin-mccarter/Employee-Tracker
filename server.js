@@ -62,7 +62,7 @@ function menuQuestions() {
     .then(function ({menu}) {
         switch (menu) {
             case "View All Employees":
-                viewAllEmployees();
+                ViewAllEmployees();
                 break;
 
             case "Add Employee":
@@ -99,7 +99,7 @@ function menuQuestions() {
 }
 
 // works
-function viewAllEmployees() {
+function ViewAllEmployees() {
     console.log("Viewing all employees: \n")
 
     let query = `
@@ -123,71 +123,99 @@ function viewAllEmployees() {
     })
 }
 
-// 'pipe' broken?
+// works
 function AddEmployee() {
-    console.log("Please enter employee information: \n")
-
-    let query = `SELECT r.id, r.title, r.salary FROM role r`;
-
-    connection.query(query, function (err, res) {
-        if(err) throw err
-
-        const roleChoices = res.map(({ id, title, salary }) => ({
-            value: id, title: `${title}`, salary: `${salary}`
-        }))
-
-        console.table(res);
-
-        promptInsert(roleChoices);
-    })
-}
-
-// part of add employee
-function promptInsert(roleChoices) {
-    inquirer.prompt()[
-        {
-            type: "input",
-            message: "What is the employees first name?",
-            name: "first_name"
-        },
-        {
-            type: "input",
-            message: "What is the employees last name?",
-            name: "last_name"
-        },
-        {
-            type: "list",
-            message: "What is the employees role ID number?",
-            name: "roleId",
-            choices: roleChoices
-        },
-        {
-            type: "input",
-            message: "What is the manager ID number?",
-            name: "managerId"
-        }
-    ]
-    .then(function (answer) {
-        console.log(answer)
-
-        var query = `INSERT INTO employee SET ?`
-        
-        connection.query(query,
-        {
-          first_name: answer.first_name,
-          last_name: answer.last_name,
-          role_id: answer.roleId,
-          manager_id: answer.managerId,
-        },
-        function (err, res) {
-          if (err) throw err;
-
-          console.table(res);
-          console.log(res.insertedRows + "Inserted successfully!\n");
-
-          menuQuestions();
+    let userInput1;
+    const query = `SELECT id, title FROM role WHERE title NOT LIKE '%Manager%';`;
+      
+    Promise.resolve()
+        .then(() => {
+            return new Promise((resolve, reject) => {
+                connection.query(query, (err, data) => {
+                if (err) reject(err);
+                else resolve(data);
+                });
+            });
         })
-    })
+        .then((rolesData) => {
+            const roles = rolesData.map(
+              (item) => `Role title: ${item.title}, Role ID: ${item.id}`
+            );
+      
+            return inquirer.prompt([
+              {
+                name: "first_name",
+                type: "input",
+                message: "What is the employee's first name?",
+              },
+              {
+                name: "last_name",
+                type: "input",
+                message: "What is the employee's last name?",
+              },
+              {
+                name: "role",
+                type: "list",
+                message: "What is the employee's role id?",
+                choices: roles,
+              },
+            ]);
+        })
+        .then((answer) => {
+            userInput1 = answer;
+            
+            const query2 = `
+            SELECT manager.id as manager_id,
+            CONCAT(manager.first_name, ' ', manager.last_name) AS manager_name
+            FROM employee
+            LEFT JOIN role 
+                ON employee.role_id = role.id
+            LEFT JOIN employee AS manager 
+                ON manager.id = employee.manager_id 
+            WHERE manager.id IS NOT NULL
+            GROUP BY manager_id;
+            `;
+
+            return new Promise((resolve, reject) => {
+              connection.query(query2, (err, data) => {
+                if (err) reject(err);
+                else resolve(data);
+              });
+            });
+        })
+        .then((managersData) => {
+            const managers = managersData.map(
+              (item) => `${item.manager_name} ID:${item.manager_id}`
+            );
+      
+            return inquirer.prompt([
+                {
+                    name: "manager",
+                    type: "list",
+                    message: "Which manager is the employee under?",
+                    choices: [...managers, "None"],
+                },
+            ]);
+        })
+        .then((answer) => {
+            const query = `INSERT INTO employee (first_name, last_name, role_id, manager_id) VALUES (?, ?, ?, ?)`;
+            connection.query( query,
+                [
+                    userInput1.first_name,
+                    userInput1.last_name,
+                    userInput1.role.split("ID: ")[1],
+                    answer.manager.split("ID:")[1],
+                ],
+              (err, data) => {
+                    if (err) throw err;
+                    console.log(
+                        `Added ${userInput1.first_name} ${userInput1.last_name} to the database`
+                    );
+
+                    ViewAllEmployees();
+                }
+            );
+        });
 }
 
 // works
